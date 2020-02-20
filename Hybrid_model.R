@@ -4,22 +4,30 @@ library(neuralnet)
 library(dynlm)
 library(LPTime)
 library(TTR)
+library(rstudioapi)
 #library(parallel)
 #library(foreach)
 #library(doParallel)
 #registerDoParallel(cores=1)
 
+
+
 #importing data, defining variables
-dcoil=na.omit(dcoil)
-ddates <- dcoil$observation_date
-prices <- dcoil$DCOILWTICO_20200115
-log_returns <- diff(log(prices[1:8577]), p=1) #training set
+dcoil<-readxl::read_excel(paste(dirname(getActiveDocumentContext()$path), "/DCOILWTICO_2.xlsx", sep="")) #read excel
+DB_length=8577 #length of the timeseries
+
+#select date (ddates) and price (prices) columns from the dataset, and calculate the log returns (log_returns). 
+#arguments: colnumber of the date column, column number of the price column, lenth of the time-series
+PrepareData(1, 2, DB_length)
+
+#testing stationarity
 adf.test(log_returns)
 
+#to have the same length as the log_returns
+ddates2=ddates[2:DB_length]
+prices2=prices[2:DB_length]
 
 #creating technical indicators
-ddates2=ddates[2:8577]
-prices2=prices[2:8577]
 MA300 <- SMA(prices2, n=300)
 MA <- SMA(prices2, n = 200)
 MA100 <- SMA(prices2, n=100)
@@ -40,7 +48,7 @@ x <- ts(a[,1:12],start=c(1986, as.numeric(format(inds[1], "%j"))), frequency=250
 y <- ts(cbind(a[,13]),start=c(1986, as.numeric(format(inds[1], "%j"))), frequency=250)
 colnames(y) <- c("log_return")
 #plot(y)
-useddate <- as.Date(ddates[300:8577])
+useddate <- as.Date(ddates[300:DB_length])
 
 x.ma <- x[,8]
 x.ma10 <- x[,9]
