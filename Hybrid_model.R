@@ -13,12 +13,12 @@ library(rstudioapi)
 
 
 #importing data, defining variables
-dcoil<-readxl::read_excel(paste(dirname(getActiveDocumentContext()$path), "/DCOILWTICO_2.xlsx", sep="")) #read excel
-DB_length=8577 #length of the timeseries
+dcoil<-readxl::read_excel(paste(dirname(getActiveDocumentContext()$path), "/BTC-USD (1).xlsx", sep="")) #read excel
+DB_length=1984 #length of the timeseries
 
 #select date (ddates) and price (prices) columns from the dataset, and calculate the log returns (log_returns). 
 #arguments: colnumber of the date column, column number of the price column, lenth of the time-series
-PrepareData(1, 2, DB_length)
+PrepareData(1, 6, DB_length)
 
 #testing stationarity
 adf.test(log_returns)
@@ -42,12 +42,10 @@ moment300 <- momentum(prices2, n=300)
 a=na.omit(cbind(ddates2, moment, moment10, moment50, moment100, moment200, moment300, MA, MA10, MA50, MA100, MA300, log_returns))
 
 #setting timeseries
-inds <- seq(as.Date("1986-10-16"), as.Date("2020-01-13"), by = "day")
+inds <- seq(as.Date("2014-09-17"), as.Date("2020-02-21"), by = "day")
 x <- ts(a[,1:12],start=c(1986, as.numeric(format(inds[1], "%j"))), frequency=250)
-#plot(x)
 y <- ts(cbind(a[,13]),start=c(1986, as.numeric(format(inds[1], "%j"))), frequency=250)
 colnames(y) <- c("log_return")
-#plot(y)
 useddate <- as.Date(ddates[300:DB_length])
 
 x.ma <- x[,8]
@@ -69,11 +67,12 @@ RMSEs_lin<- matrix(0,4,1)
 RMSEs_nn<- matrix(0,4,1)
 RMSEs_hibr<- matrix(0,4,1)
 
+d=0
 for(d in 1:4) 
 {
 #rolling window lm model 
 k=0
-windowsSize <- 4000+1000*d # training data size
+windowsSize <- 1200+100*d # training data size
 testsize    <- 1    # number of observation to forecast
 Nexp <- length(x.ma)-windowsSize-testsize #maximum number of experiments
 Nexp
@@ -86,18 +85,18 @@ for(k in 0:Nexp)  # run experiments
   start_obs <- A 
   end_obs   <- B
   
-  y_AB <- y[A:B] #
-  x.ma_AB <- x.ma[A:B]
-  x.ma10_AB <- x.ma10[A:B]
-  x.ma50_AB <- x.ma50[A:B]
-  x.ma100_AB <- x.ma100[A:B]
-  x.ma300_AB <- x.ma300[A:B]
-  x.moment_AB <- x.moment[A:B]
-  x.moment10_AB <- x.moment10[A:B]
-  x.moment50_AB <- x.moment50[A:B]
-  x.moment100_AB <- x.moment100[A:B]
-  x.moment200_AB <- x.moment200[A:B]
-  x.moment300_AB <- x.moment300[A:B]
+  y_AB <- as.numeric(y[A:B]) #
+  x.ma_AB <- as.numeric(x.ma[A:B])
+  x.ma10_AB <- as.numeric(x.ma10[A:B])
+  x.ma50_AB <- as.numeric(x.ma50[A:B])
+  x.ma100_AB <- as.numeric(x.ma100[A:B])
+  x.ma300_AB <- as.numeric(x.ma300[A:B])
+  x.moment_AB <- as.numeric(x.moment[A:B])
+  x.moment10_AB <- as.numeric(x.moment10[A:B])
+  x.moment50_AB <- as.numeric(x.moment50[A:B])
+  x.moment100_AB <- as.numeric(x.moment100[A:B])
+  x.moment200_AB <- as.numeric(x.moment200[A:B])
+  x.moment300_AB <- as.numeric(x.moment300[A:B])
   df_nnonly <- data.frame(cbind(y_AB,x.ma_AB, x.ma10_AB,x.ma50_AB, x.ma100_AB,x.ma300_AB,x.moment_AB,x.moment10_AB,x.moment50_AB, x.moment100_AB, x.moment200_AB, x.moment300_AB))
   
   llmm <- lm(y_AB~x.ma_AB + x.ma10_AB + x.ma50_AB + x.ma100_AB + x.ma300_AB + x.moment_AB+x.moment10_AB+x.moment50_AB+x.moment100_AB+ x.moment200_AB+ x.moment300_AB) #define linear model
@@ -120,18 +119,18 @@ for(k in 0:Nexp)  # run experiments
   
   A <- B+1
   B <- B + testsize
-  y_AB <- y[A:B]
-  x.ma_AB <- x.ma[A:B]
-  x.ma10_AB <- x.ma10[A:B]
-  x.ma50_AB <- x.ma50[A:B]
-  x.ma100_AB <- x.ma100[A:B]
-  x.ma300_AB <- x.ma300[A:B]
-  x.moment_AB <- x.moment[A:B]
-  x.moment10_AB <- x.moment10[A:B]
-  x.moment50_AB <- x.moment50[A:B]
-  x.moment100_AB <- x.moment100[A:B]
-  x.moment200_AB <- x.moment200[A:B]
-  x.moment300_AB <- x.moment300[A:B]
+  y_AB <- as.numeric(y[A:B])
+  x.ma_AB <- as.numeric(x.ma[A:B])
+  x.ma10_AB <- as.numeric(x.ma10[A:B])
+  x.ma50_AB <- as.numeric(x.ma50[A:B])
+  x.ma100_AB <- as.numeric(x.ma100[A:B])
+  x.ma300_AB <- as.numeric(x.ma300[A:B])
+  x.moment_AB <- as.numeric(x.moment[A:B])
+  x.moment10_AB <- as.numeric(x.moment10[A:B])
+  x.moment50_AB <- as.numeric(x.moment50[A:B])
+  x.moment100_AB <- as.numeric(x.moment100[A:B])
+  x.moment200_AB <- as.numeric(x.moment200[A:B])
+  x.moment300_AB <- as.numeric(x.moment300[A:B])
   predict_y <- matrix(0, testsize, 1)
   nnonly_results <- matrix(0, testsize, 1)
   residual_fc <- matrix(0, testsize, 1)
@@ -177,3 +176,4 @@ RMSEs_hibr[d]=RMSE_hibr[k+1]
 vvv=cbind(RMSEs_lin,RMSEs_nn,RMSEs_hibr)
 colnames(vvv) <- c("Lin", "nn", "hibr")
 View(vvv)
+
