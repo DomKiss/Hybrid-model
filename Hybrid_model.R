@@ -13,15 +13,14 @@ library(rstudioapi)
 
 
 #importing data, defining variables
-dcoil<-readxl::read_excel(paste(dirname(getActiveDocumentContext()$path), "/BTC-USD (1).xlsx", sep="")) #read excel
-DB_length=1984 #length of the timeseries
+adata<-readxl::read_excel(paste(dirname(getActiveDocumentContext()$path), "/BTC-USD (1).xlsx", sep="")) #read excel
 
 #select date (ddates) and price (prices) columns from the dataset, and calculate the log returns (log_returns). 
 #arguments: colnumber of the date column, column number of the price column, lenth of the time-series
-PrepareData(1, 6, DB_length)
+prep_adata <- PrepareData(1, 6, nrow(adata))
 
 #testing stationarity
-adf.test(log_returns)
+adf.test(prep_adata$log_returns)
 
 #to have the same length as the log_returns
 ddates2=ddates[2:DB_length]
