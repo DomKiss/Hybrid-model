@@ -29,25 +29,7 @@ TIs <- TI_gen(prep_adata$prices, prep_adata$dates, n_vector, Ind_name="MA")
 Input_data_df <- na.omit(cbind(TIs, prep_adata$log_returns))
 colnames(Input_data_df)[length(Input_data_df)] <- c("Log_returns")
 
-#setting timeseries
-#inds <- seq(as.Date("2014-09-17"), as.Date("2020-02-21"), by = "day")
-#x <- ts(a[,1:12],start=c(1986, as.numeric(format(inds[1], "%j"))), frequency=250)
-#y <- ts(cbind(a[,13]),start=c(1986, as.numeric(format(inds[1], "%j"))), frequency=250)
-#colnames(y) <- c("log_return")
-#useddate <- as.Date(ddates[300:DB_length])
 
-#x.ma <- x[,8]
-#x.ma10 <- x[,9]
-#x.ma50 <- x[,10]
-#x.ma100 <- x[,11]
-#x.ma300 <- x[,12]
-#x.moment <- x[,2]
-#x.moment10 <- x[,3]
-#x.moment50 <- x[,4]
-#x.moment100 <- x[,5]
-#x.moment200 <- x[,6]
-#x.moment300 <- x[,7]
-#regdata=as.data.frame(cbind( x,y))
 RMSE_lin <- matrix(0,50,1)
 RMSE_hibr <- matrix(0,50,1)
 RMSE_NN<- matrix(0,50,1)
@@ -73,19 +55,11 @@ for(k in 0:Nexp)  # run experiments
   start_obs <- A 
   end_obs   <- B
   
-  y_AB <- as.numeric(y[A:B]) #
-  x.ma_AB <- as.numeric(x.ma[A:B])
-  x.ma10_AB <- as.numeric(x.ma10[A:B])
-  x.ma50_AB <- as.numeric(x.ma50[A:B])
-  x.ma100_AB <- as.numeric(x.ma100[A:B])
-  x.ma300_AB <- as.numeric(x.ma300[A:B])
-  x.moment_AB <- as.numeric(x.moment[A:B])
-  x.moment10_AB <- as.numeric(x.moment10[A:B])
-  x.moment50_AB <- as.numeric(x.moment50[A:B])
-  x.moment100_AB <- as.numeric(x.moment100[A:B])
-  x.moment200_AB <- as.numeric(x.moment200[A:B])
-  x.moment300_AB <- as.numeric(x.moment300[A:B])
-  df_nnonly <- data.frame(cbind(y_AB,x.ma_AB, x.ma10_AB,x.ma50_AB, x.ma100_AB,x.ma300_AB,x.moment_AB,x.moment10_AB,x.moment50_AB, x.moment100_AB, x.moment200_AB, x.moment300_AB))
+ 
+  df_sel <-  NN_input(start_obs,end_obs, Input_data_df$Date,Input_data_df, "MA")
+  df_x <- df_sel[,2:(length(df_sel)-1)]
+  df_y <- as.data.frame(df_sel[,length(df_sel)])
+  colnames(df_y) <- ("Log_returns")
   
   llmm <- lm(y_AB~x.ma_AB + x.ma10_AB + x.ma50_AB + x.ma100_AB + x.ma300_AB + x.moment_AB+x.moment10_AB+x.moment50_AB+x.moment100_AB+ x.moment200_AB+ x.moment300_AB) #define linear model
   intercept  <- coef(llmm)[1]

@@ -24,7 +24,8 @@ TI_gen <- function(data, date, n_vector, Ind_name) {
 }
 
 
-NN_input <- function(start_obs, end_obs, date, data_df, Ind_name) {
+#select data in each loop
+sel_data <- function(start_obs, end_obs, date, data_df, Ind_name) {
   result=data.frame()
   result <- as.data.frame.Date(date[start_obs:end_obs])
    for(i in 2:length(data_df)) {
@@ -38,11 +39,26 @@ NN_input <- function(start_obs, end_obs, date, data_df, Ind_name) {
   colnames(result)[1] <- c("Date")
   
   return(result)
-  
 }
 
-start_obs <- 10
-end_obs <- 20
-NN_tabla<-NN_input(start_obs,end_obs, Input_data_df$Date,Input_data_df, "MA")
-View(NN_tabla)
+#save coeffitients
+save_coef <- function(dfx, lm) {
+  intercept <- coef(lm)[1]
+  result <- intercept
+  for (i in 2:(length(df_x)+1)) {
+  
+    koef <- coef(lm) [i]
+    result <- cbind(result, koef)
+    colnames(result)[i] <- colnames(dfx)[i-1]
+    
+  }
+  colnames(result)[1] <- c("Intercept")
+  return(result)
+}
+
+save_coef(df_x, llmm)
+
+
+
+
 
