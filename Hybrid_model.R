@@ -10,8 +10,6 @@ library(rstudioapi)
 #library(doParallel)
 #registerDoParallel(cores=1)
 
-
-
 #importing data, defining variables
 adata<-readxl::read_excel(paste(dirname(getActiveDocumentContext()$path), "/BTC-USD (1).xlsx", sep="")) #read excel
 
@@ -22,43 +20,34 @@ prep_adata <- PrepareData(1, 6, nrow(adata))
 #testing stationarity
 adf.test(prep_adata$log_returns)
 
-#to have the same length as the log_returns
-ddates2=ddates[2:DB_length]
-prices2=prices[2:DB_length]
 
 #creating technical indicators
-MA300 <- SMA(prices2, n=300)
-MA <- SMA(prices2, n = 200)
-MA100 <- SMA(prices2, n=100)
-MA50 <- SMA(prices2, n=50)
-MA10 <- SMA(prices2, n=10)
-moment <- momentum(prices2)
-moment10 <- momentum(prices2, n=10)
-moment50 <- momentum(prices2, n=50)
-moment100 <- momentum(prices2, n=100)
-moment200 <- momentum(prices2, n=200)
-moment300 <- momentum(prices2, n=300)
-a=na.omit(cbind(ddates2, moment, moment10, moment50, moment100, moment200, moment300, MA, MA10, MA50, MA100, MA300, log_returns))
+n_vector <- c(5,3,4,44,55)
+TIs <- TI_gen(prep_adata$prices, prep_adata$dates, n_vector, Ind_name="MA")
+
+#TIs + log_returns matrix
+Input_data_df <- na.omit(cbind(TIs, prep_adata$log_returns))
+colnames(Input_data_df)[length(Input_data_df)] <- c("Log_returns")
 
 #setting timeseries
-inds <- seq(as.Date("2014-09-17"), as.Date("2020-02-21"), by = "day")
-x <- ts(a[,1:12],start=c(1986, as.numeric(format(inds[1], "%j"))), frequency=250)
-y <- ts(cbind(a[,13]),start=c(1986, as.numeric(format(inds[1], "%j"))), frequency=250)
-colnames(y) <- c("log_return")
-useddate <- as.Date(ddates[300:DB_length])
+#inds <- seq(as.Date("2014-09-17"), as.Date("2020-02-21"), by = "day")
+#x <- ts(a[,1:12],start=c(1986, as.numeric(format(inds[1], "%j"))), frequency=250)
+#y <- ts(cbind(a[,13]),start=c(1986, as.numeric(format(inds[1], "%j"))), frequency=250)
+#colnames(y) <- c("log_return")
+#useddate <- as.Date(ddates[300:DB_length])
 
-x.ma <- x[,8]
-x.ma10 <- x[,9]
-x.ma50 <- x[,10]
-x.ma100 <- x[,11]
-x.ma300 <- x[,12]
-x.moment <- x[,2]
-x.moment10 <- x[,3]
-x.moment50 <- x[,4]
-x.moment100 <- x[,5]
-x.moment200 <- x[,6]
-x.moment300 <- x[,7]
-regdata=as.data.frame(cbind( x,y))
+#x.ma <- x[,8]
+#x.ma10 <- x[,9]
+#x.ma50 <- x[,10]
+#x.ma100 <- x[,11]
+#x.ma300 <- x[,12]
+#x.moment <- x[,2]
+#x.moment10 <- x[,3]
+#x.moment50 <- x[,4]
+#x.moment100 <- x[,5]
+#x.moment200 <- x[,6]
+#x.moment300 <- x[,7]
+#regdata=as.data.frame(cbind( x,y))
 RMSE_lin <- matrix(0,50,1)
 RMSE_hibr <- matrix(0,50,1)
 RMSE_NN<- matrix(0,50,1)
@@ -72,7 +61,7 @@ for(d in 1:4)
 #rolling window lm model 
 k=0
 windowsSize <- 1200+100*d # training data size
-testsize    <- 1    # number of observation to forecast
+testsize    <- 1    # 1 step ahead forecast
 Nexp <- length(x.ma)-windowsSize-testsize #maximum number of experiments
 Nexp
 for(k in 0:Nexp)  # run experiments
@@ -172,7 +161,7 @@ RMSEs_lin[d]=RMSE_lin[k+1]
 RMSEs_nn[d]=RMSE_NN[k+1]
 RMSEs_hibr[d]=RMSE_hibr[k+1]
 }
-vvv=cbind(RMSEs_lin,RMSEs_nn,RMSEs_hibr)
-colnames(vvv) <- c("Lin", "nn", "hibr")
-View(vvv)
+final_results=cbind(RMSEs_lin,RMSEs_nn,RMSEs_hibr)
+colnames(final_results) <- c("Lin", "nn", "hibr")
+View(final_results)
 
