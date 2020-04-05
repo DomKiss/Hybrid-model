@@ -7,7 +7,7 @@ library(TTR)
 library(rstudioapi)
 library(quantmod)
 
-#importing data, defining variables
+#importing data
 adata<-readxl::read_excel(paste(dirname(getActiveDocumentContext()$path), "/BTC-USD (1).xlsx", sep="")) #read excel
 
 #select date (ddates) and price (prices) columns from the dataset, and calculate the log returns (log_returns). 
@@ -22,8 +22,11 @@ n_vector <- c(60,70,80,90,100,120)
 TIs <- TI_gen(prep_adata$prices, prep_adata$dates, n_vector, Ind_name="MA")
 
 #join TIs + log_returns matrix, omit NAs
-Input_data_df <- na.omit(cbind(TIs, prep_adata$log_returns))
-colnames(Input_data_df)[length(Input_data_df)] <- c("Log_returns")
+Input_data_df_nonlagged <- na.omit(cbind(TIs, prep_adata$log_returns))
+colnames(Input_data_df_nonlagged)[length(Input_data_df_nonlagged)] <- c("Log_returns")
+
+#creating df with lagged log_returns
+Input_data_df <- laglog(Input_data_df_nonlagged, Input_data_df_nonlagged$Log_returns,1)
 
 
 RMSE_lin <- matrix(0,50,1)
@@ -55,10 +58,10 @@ for(k in 0:Nexp)  # run experiments
   df_sel <-  sel_data(start_obs,end_obs, Input_data_df$Date,Input_data_df, "MA")
   df_x <- df_sel[,2:(length(df_sel)-1)] #selected x variables
   df_y <- as.data.frame(df_sel[,length(df_sel)])  #selected y variables
-  colnames(df_y) <- ("Log_returns")
+  colnames(df_y) <- ("Lagged_logreturns")
   
   #fitting linear regression
-  llmm <- lm(Log_returns ~ . - Date, data = df_sel)
+  llmm <- lm(Lagged_logreturn ~ . - Date, data = df_sel)
  
   #saving coeffitiens
   df_lin_coefs <- save_coef(df_x, llmm)
@@ -69,13 +72,12 @@ for(k in 0:Nexp)  # run experiments
   
  
   #fitting only neural net on the log_returns
-  nn_only=neuralnet(Log_returns ~ . - Date, data = df_sel)
- 
+  nn_only=neuralnet(Lagged_logreturn ~ . - Date, data = df_sel)
+  i =1
   A <- B+1
-  B <- B + testsize
-  df_sel_test <- sel_data(start_obs,end_obs, Input_data_df$Date,Input_data_df, "MA")
-  df_x <- df_sel[,2:(length(df_sel)-1)]
-  df_y <- as.data.frame(df_sel[,length(df_sel)])
+  df_sel_test <- sel_data(A,A, Input_data_df$Date,Input_data_df, "MA")
+  df_x <- df_sel_test[,2:(length(df_sel)-1)]
+  df_y <- as.data.frame(df_sel_test[,length(df_sel_test)])
   colnames(df_y) <- ("Log_returns")
   predict_y <- matrix(0, testsize, 1)
   nnonly_results <- matrix(0, testsize, 1)
@@ -92,8 +94,8 @@ for(k in 0:Nexp)  # run experiments
     SSE_lin <- SSE_lin+(predict_y[i]-df_y[i,])^2
     residual_fc[i] <- predict_y[i]-df_y[i,]
     #nn test
-    predict_y_nnonly <- compute(nn_only, df_x[i,])
-    nnonly_results[i] <- predict_y_nnonly$net.result
+    predict_y_nnonly <- predict(nn_only, df_x[i,])
+    nnonly_results[i] <- predict_y_nnonly
     SSE_NN <- SSE_NN + (nnonly_results[i]-df_y[i,])^2
     
     predictnn_y <- compute(nn,df_x[i,])
