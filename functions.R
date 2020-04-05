@@ -1,7 +1,12 @@
+
+#T_colnumber=number of the Date column; P_colnumber=number of the price column, DB_length=length of the importent database
 PrepareData <- function(T_colnumber, P_colnumber, DB_length){
-  dates <- adata$Date[2:DB_length]
-  prices <- adata$`Adj Close`[2:DB_length]
-  log_returns <- diff(log(adata$`Adj Close`), p=1)
+  dates <- adata[2:DB_length, T_colnumber]
+  #dates <- adata$Date[2:DB_length]
+  prices <- adata[2:DB_length, P_colnumber]
+  #prices <- adata$`Adj Close`[2:DB_length]
+  log_returns <- diff(log(adata[,P_colnumber]), p=1)
+  #log_returns <- diff(log(adata$`Adj Close`), p=1)
   data.frame(dates, prices, log_returns)
 }
 
@@ -24,7 +29,7 @@ TI_gen <- function(data, date, n_vector, Ind_name) {
 }
 
 
-#select data in each loop
+#select data for a given window.
 sel_data <- function(start_obs, end_obs, date, data_df, Ind_name) {
   result=data.frame()
   result <- as.data.frame.Date(date[start_obs:end_obs])
@@ -41,7 +46,7 @@ sel_data <- function(start_obs, end_obs, date, data_df, Ind_name) {
   return(result)
 }
 
-#save coeffitients
+#save coeffitients for the linear regression
 save_coef <- function(dfx, lm) {
   intercept <- coef(lm)[1]
   result <- intercept
@@ -49,16 +54,20 @@ save_coef <- function(dfx, lm) {
   
     koef <- coef(lm) [i]
     result <- cbind(result, koef)
-    colnames(result)[i] <- colnames(dfx)[i-1]
+    colnames(result)[i] <- paste("coef_",colnames(dfx)[i-1], sep="")
     
   }
   colnames(result)[1] <- c("Intercept")
   return(result)
 }
 
-save_coef(df_x, llmm)
-
-
-
-
-
+#making log returns lagged
+laglog <- function(df,column_to_be_lagged, l) {
+  lag1 <- as.data.frame(embed(column_to_be_lagged,l+1)[,1])
+  colnames(lag1) <- c("Lagged_logreturn")
+  df <- cbind(df[1:(nrow(df)-1),], lag1)
+  result <- df[ ,!(colnames(df) == "Log_returns")]
+  
+}
+  
+  

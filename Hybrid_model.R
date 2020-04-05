@@ -8,11 +8,15 @@ library(rstudioapi)
 library(quantmod)
 
 #importing data
-adata<-readxl::read_excel(paste(dirname(getActiveDocumentContext()$path), "/BTC-USD (1).xlsx", sep="")) #read excel
+adatax <- getSymbols.yahoo('BTC-USD', env=globalenv(), from= "2016-01-01", to="2020-02-28", auto.assign = FALSE, return.class = 'data.frame')
+adata <- cbind(as.data.frame.Date(rownames(adatax)), adatax)
+colnames(adata)[1] <- c("Date")
+#adata2<-readxl::read_excel(paste(dirname(getActiveDocumentContext()$path), "/BTC-USD (1).xlsx", sep="")) #read excel
+
 
 #select date (ddates) and price (prices) columns from the dataset, and calculate the log returns (log_returns). 
 #arguments: colnumber of the date column, column number of the price column, lenth of the time-series
-prep_adata <- PrepareData(1, 6, nrow(adata))
+prep_adata <- PrepareData(1, 7, nrow(adata))
 
 #testing stationarity
 adf.test(prep_adata$log_returns)
@@ -32,23 +36,26 @@ Input_data_df <- laglog(Input_data_df_nonlagged, Input_data_df_nonlagged$Log_ret
 RMSE_lin <- matrix(0,50,1)
 RMSE_hibr <- matrix(0,50,1)
 RMSE_NN<- matrix(0,50,1)
-RMSEs_lin<- matrix(0,4,1)
-RMSEs_nn<- matrix(0,4,1)
-RMSEs_hibr<- matrix(0,4,1)
+
 
 d=0
-for(d in 1:4) 
+nt=3
+RMSEs_lin<- matrix(0,nt,1)
+RMSEs_nn<- matrix(0,nt,1)
+RMSEs_hibr<- matrix(0,nt,1)
+windowsizz <- matrix(0,nt,1)
+for(d in 1:nt) 
 {
+  
 #rolling window lm model 
 k=0
-windowsSize <- 1500+d*100 # training data size
+windowsSize <- nrow(Input_data_df)-350+d*100 # training data size
 testsize    <- 1    # 1 step ahead forecast
-Nexp <- length(Input_data_df$Date)-windowsSize-testsize #maximum number of experiments
+Nexp <- nrow(Input_data_df)-windowsSize-1 #maximum number of experiments
 Nexp
 for(k in 0:Nexp)  # run experiments
 
 {
-  k <- 275
   A         <- k*testsize + 1 
   B         <- A + windowsSize - 1 
   start_obs <- A 
@@ -106,7 +113,7 @@ for(k in 0:Nexp)  # run experiments
   RMSE_lin[k+1] <- sqrt(SSE_lin/testsize)
   RMSE_NN[k+1] <- sqrt(SSE_NN/testsize)
   RMSE_hibr[k+1] <- sqrt(SSE_hibr/testsize)
-  
+  windowsizz[k+1] <- 
   
 }
 
@@ -121,8 +128,9 @@ print(SSE_hibr)
 RMSEs_lin[d]=RMSE_lin[k+1]
 RMSEs_nn[d]=RMSE_NN[k+1]
 RMSEs_hibr[d]=RMSE_hibr[k+1]
+
 }
 final_results=cbind(RMSEs_lin,RMSEs_nn,RMSEs_hibr)
-colnames(final_results) <- c("Lin", "nn", "hibr")
+colnames(final_results) <- c("Lin", "NN", "Hibr")
 View(final_results)
 
