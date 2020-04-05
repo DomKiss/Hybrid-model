@@ -18,7 +18,7 @@ prep_adata <- PrepareData(1, 6, nrow(adata))
 adf.test(prep_adata$log_returns)
 
 #creating technical indicators
-n_vector <- c(5,3,4,44,55)
+n_vector <- c(60,70,80,90,100,120)
 TIs <- TI_gen(prep_adata$prices, prep_adata$dates, n_vector, Ind_name="MA")
 
 #join TIs + log_returns matrix, omit NAs
@@ -38,9 +38,9 @@ for(d in 1:4)
 {
 #rolling window lm model 
 k=0
-windowsSize <- 1200+100*d # training data size
+windowsSize <- 1500+d*100 # training data size
 testsize    <- 1    # 1 step ahead forecast
-Nexp <- length(x.ma)-windowsSize-testsize #maximum number of experiments
+Nexp <- length(Input_data_df$Date)-windowsSize-testsize #maximum number of experiments
 Nexp
 for(k in 0:Nexp)  # run experiments
 
@@ -76,7 +76,7 @@ for(k in 0:Nexp)  # run experiments
   df_sel_test <- sel_data(start_obs,end_obs, Input_data_df$Date,Input_data_df, "MA")
   df_x <- df_sel[,2:(length(df_sel)-1)]
   df_y <- as.data.frame(df_sel[,length(df_sel)])
-  
+  colnames(df_y) <- ("Log_returns")
   predict_y <- matrix(0, testsize, 1)
   nnonly_results <- matrix(0, testsize, 1)
   residual_fc <- matrix(0, testsize, 1)
@@ -87,18 +87,19 @@ for(k in 0:Nexp)  # run experiments
   SSE_NN <- 0
   for(i in 1:testsize)
   {
+    #lin reg test
     predict_y[i] <- df_lin_coefs[1] + sum(df_lin_coefs[,-1]*df_x[i,])
-    SSE_lin <- SSE_lin+(predict_y[i]-y_AB[i])^2
-    residual_fc[i] <- predict_y[i]-y_AB[i]
-    nn_test_df=data.frame(x.ma_AB[i], x.ma10_AB[i],x.ma50_AB[i], x.ma100_AB[i],x.ma300_AB[i],x.moment_AB[i],x.moment10_AB[i],x.moment50_AB[i], x.moment100_AB[i], x.moment200_AB[i], x.moment300_AB[i])
-    predict_y_nnonly <- compute(nn_only, nn_test_df)
+    SSE_lin <- SSE_lin+(predict_y[i]-df_y[i,])^2
+    residual_fc[i] <- predict_y[i]-df_y[i,]
+    #nn test
+    predict_y_nnonly <- compute(nn_only, df_x[i,])
     nnonly_results[i] <- predict_y_nnonly$net.result
-    SSE_NN <- SSE_NN + (nnonly_results[i]-y_AB[i])^2
+    SSE_NN <- SSE_NN + (nnonly_results[i]-df_y[i,])^2
     
-    predictnn_y <- compute(nn,nn_test_df)
+    predictnn_y <- compute(nn,df_x[i,])
     nnresults[i] <- predictnn_y$net.result
-    final_results[i] <- nnresults[i] + predict_y[i]
-    SSE_hibr <- SSE_hibr+(final_results[i]-y_AB[i])^2
+    final_results[i] <- nnresults[i] + unlist(predict_y[i])
+    SSE_hibr <- SSE_hibr+(final_results[i]-df_y[i,])^2
   }
   RMSE_lin[k+1] <- sqrt(SSE_lin/testsize)
   RMSE_NN[k+1] <- sqrt(SSE_NN/testsize)
