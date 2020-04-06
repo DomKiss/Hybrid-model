@@ -8,7 +8,7 @@ library(rstudioapi)
 library(quantmod)
 
 #importing data
-adatax <- getSymbols.yahoo('BTC-USD', env=globalenv(), from= "2016-01-01", to="2020-02-28", auto.assign = FALSE, return.class = 'data.frame')
+adatax <- getSymbols.yahoo('BTC-USD', env=globalenv(), from= "2010-01-01", to="2020-02-28", auto.assign = FALSE, return.class = 'data.frame')
 adata <- cbind(as.data.frame.Date(rownames(adatax)), adatax)
 colnames(adata)[1] <- c("Date")
 #adata2<-readxl::read_excel(paste(dirname(getActiveDocumentContext()$path), "/BTC-USD (1).xlsx", sep="")) #read excel
@@ -43,13 +43,13 @@ nt=3
 RMSEs_lin<- matrix(0,nt,1)
 RMSEs_nn<- matrix(0,nt,1)
 RMSEs_hibr<- matrix(0,nt,1)
-windowsizz <- matrix(0,nt,1)
+TrainingSiz <- matrix(0,nt,1)
 for(d in 1:nt) 
 {
   
 #rolling window lm model 
 k=0
-windowsSize <- nrow(Input_data_df)-350+d*100 # training data size
+windowsSize <- nrow(Input_data_df)-1400+d*100 # training data size
 testsize    <- 1    # 1 step ahead forecast
 Nexp <- nrow(Input_data_df)-windowsSize-1 #maximum number of experiments
 Nexp
@@ -75,7 +75,7 @@ for(k in 0:Nexp)  # run experiments
   residual_tr <- residuals(llmm)
   
   #fitting neural net on the linreg residuals
-  nn=neuralnet(residual_tr~., data=df_x, hidden=3, act.fct = "logistic", threshold=0.1)
+  nn=neuralnet(residual_tr~., data=df_x, hidden=1, act.fct = "logistic", threshold=0.1)
   
  
   #fitting only neural net on the log_returns
@@ -113,7 +113,7 @@ for(k in 0:Nexp)  # run experiments
   RMSE_lin[k+1] <- sqrt(SSE_lin/testsize)
   RMSE_NN[k+1] <- sqrt(SSE_NN/testsize)
   RMSE_hibr[k+1] <- sqrt(SSE_hibr/testsize)
-  windowsizz[k+1] <- 
+  
   
 }
 
@@ -128,9 +128,12 @@ print(SSE_hibr)
 RMSEs_lin[d]=RMSE_lin[k+1]
 RMSEs_nn[d]=RMSE_NN[k+1]
 RMSEs_hibr[d]=RMSE_hibr[k+1]
+TrainingSiz[d]=(A + windowsSize - 1 )-(k*testsize + 1 )
 
 }
-final_results=cbind(RMSEs_lin,RMSEs_nn,RMSEs_hibr)
-colnames(final_results) <- c("Lin", "NN", "Hibr")
-View(final_results)
-
+final_results=cbind(TrainingSiz,RMSEs_lin,RMSEs_nn,RMSEs_hibr)
+colnames(final_results) <- c("Training set size","Lin", "NN", "Hibr")
+thebest <-  as.data.frame(colnames(final_results)[apply(final_results,1,which.min)])
+final_table <-  as.data.frame(cbind(final_results, thebest))
+colnames(final_table) <- c("Training set size","Lin", "NN", "Hibr", "Best model")
+View(final_table)
