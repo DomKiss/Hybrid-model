@@ -26,15 +26,23 @@ PrepareData <- function(T_colnumber, P_colnumber, DB_length, adata){
 
 #data=dcoil$prices, n_vector=milyen késleltetések, Ind_name=ma/mom
 TI_gen <- function(data, date, n_vector, Ind_name) {
-  result=data.frame()
+  result = data.frame()
   result <- as.data.frame.Date(date)
-  for (n in n_vector) {
-    ind <- SMA(data, n=n)
-    result <- cbind(result, ind)
+  
+  if (Ind_name == "MA") {
+    for (n in n_vector) {
+      ind <- SMA(data, n = n)
+      result <- cbind(result, ind)
+    }
+  } else{
+    for (n in n_vector) {
+      ind <- momentum(data, n = n)
+      result <- cbind(result, ind)
+    }
   }
-  for (i in 1:length(n_vector)){
-    
-    colnames(result)[i+1] <-paste(Ind_name, n_vector[i], sep="")
+  
+  for (i in 1:length(n_vector)) {
+    colnames(result)[i + 1] <- paste(Ind_name, n_vector[i], sep = "")
   }
   
   colnames(result)[1] <- c("Date")
