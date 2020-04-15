@@ -7,7 +7,7 @@ library(LPTime)
 library(TTR)
 library(rstudioapi)
 library(quantmod)
-library(ggplot2)
+
 
 
 
@@ -25,7 +25,7 @@ for (ticker in tickervector) {
     getSymbols.yahoo(
       paste(ticker),
       env = globalenv(),
-      from = "2016-01-01",
+      from = "2010-01-01",
       to = "2020-03-31",
       auto.assign = FALSE,
       return.class = 'data.frame'
@@ -72,7 +72,7 @@ for (ticker in tickervector) {
     #rolling window lm model
     k = 0
     windowsSize <-
-      round (0.8 * nrow(Input_data_df)) # training data size
+      round (0.70 * nrow(Input_data_df)) # training data size
     testsize    <- 1    # 1 step ahead forecast
     Nexp <-
       nrow(Input_data_df) - windowsSize - 1 #maximum number of experiments
