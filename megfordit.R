@@ -7,11 +7,10 @@ library(TTR)
 library(rstudioapi)
 library(quantmod)
 library(writexl)
-library(plm)
 
 
-
-tickervector <-  c("BTC-USD", "XRP-USD", "ETH-USD")
+Commodity <- readxl::read_excel(paste(dirname(getActiveDocumentContext()$path), "/commodity_jo.xlsx", sep=""))
+#tickervector <-  c("BTC-USD", "XRP-USD", "ETH-USD")
 merged_results = data.frame()
 resulttable = data.frame()
 RMSEs_t = data.frame()
@@ -19,26 +18,16 @@ RMSEs = data.frame()
 RMSEs_tick = data.frame()
 f_results_table = data.frame()
 
-for (ticker in tickervector) {
+for (n in 2:9) {
   #importing data
-  adatax <-
-    getSymbols.yahoo(
-      paste(ticker),
-      env = globalenv(),
-      from = "2010-01-01",
-      to = "2020-03-31",
-      periodicity = "weekly",
-      auto.assign = FALSE,
-      return.class = 'data.frame'
-    )
-  adata <- cbind(as.data.frame.Date(rownames(adatax)), adatax)
-  colnames(adata)[1] <- c("Date")
-  #adata2<-readxl::read_excel(paste(dirname(getActiveDocumentContext()$path), "/BTC-USD (1).xlsx", sep="")) #read excel
+  ticker=colnames(Commodity[n])
+  adata2<-cbind(Commodity$Date, Commodity[,n])
+  
   
   
   #select date (ddates) and price (prices) columns from the dataset, and calculate the log returns (log_returns).
   #arguments: colnumber of the date column, column number of the price column, lenth of the time-series
-  prep_adata <- PrepareData(1, 7, nrow(adata), adata)
+  prep_adata <- PrepareData(1, 2, nrow(adata2), adata2)
   
   #testing stationarity
   adf.test(prep_adata$log_returns)
@@ -46,7 +35,7 @@ for (ticker in tickervector) {
   #creating technical indicators
   n_vector <- c(seq(28, 52, by=2))
   TIs <-
-    cbind(TI_gen(prep_adata$prices, prep_adata$dates, n_vector, Ind_name = "MA"),TI_gen(prep_adata$prices, prep_adata$dates, n_vector, Ind_name = "TSMOM")[-1])
+    cbind(TI_gen(prep_adata$prices, prep_adata$dates, n_vector, Ind_name = "MA"),TI_gen(prep_adata$prices, prep_adata$dates, n_vector, Ind_name = "TSMOM"))
   
   #join TIs + log_returns matrix, omit NAs
   Input_data_df_nonlagged <-
@@ -82,10 +71,6 @@ for (ticker in tickervector) {
   RMSEs_nn <- matrix(0, 50, 1)
   RMSEs_hibr <- matrix(0, 50, 1)
   test_date <- matrix(0, 50, 1)
-  ynn <- matrix(0, 0, 1)
-  yllmm <- matrix(0, 0, 1)
-  yhibr <- matrix(0, 0, 1)
-  yvalos <- matrix(0, 0, 1)
   TrainingSiz <- Nexp/nrow((Input_data_df))
   for (k in 0:Nexp)
     # run experiments
@@ -103,7 +88,10 @@ for (ticker in tickervector) {
                Input_data_df$Date,
                Input_data_df,
                "MA")
-    df_x <- df_sel[, 2:(length(df_sel) - 1)] #selected x variables
+    neves <- colnames(df_sel[-1])
+    df_x <- as.data.frame(df_sel[, 2:(length(df_sel) - 1)]) #selected x variables
+    colnames(df_x) <- neves[1:length(neves)-1]
+    
     df_y <-
       as.data.frame(df_sel[, length(df_sel)])  #selected y variables
     colnames(df_y) <- ("Lagged_logreturns")
@@ -114,23 +102,21 @@ for (ticker in tickervector) {
     #saving coeffitiens
     df_lin_coefs <- save_coef(df_x, llmm)
     residual_tr <- residuals(llmm)
-    
     ddfx <- cbind(residual_tr, df_x)
     #fitting neural net on the linreg residuals
     nn = neuralnet(
       residual_tr ~ .,
       data = ddfx,
       hidden = 1,
-      rep =1,
-      act.fct = "logistic"
+      act.fct = "logistic", rep=1
     )
     
     
     #fitting only neural net on the log_returns
     nn_only = neuralnet(Lagged_logreturn ~ . - Date, data = df_sel,
-                        hidden = 1, rep=1,
-                        act.fct = "logistic"
-                        )
+                        hidden = 1,
+                        act.fct = "logistic", rep=1
+    )
     
     
     #Test
@@ -138,7 +124,7 @@ for (ticker in tickervector) {
     A <- B + 1
     df_sel_test <-
       sel_data(A, A, Input_data_df$Date, Input_data_df, "MA")
-    df_x <- df_sel_test[, 2:(length(df_sel) - 1)]
+    df_x <- as.data.frame(df_sel_test[, 2:(length(df_sel) - 1)])
     df_y <- as.data.frame(df_sel_test[, length(df_sel_test)])
     colnames(df_y) <- ("Log_returns")
     predict_y <- matrix(0, testsize, 1)
@@ -153,26 +139,22 @@ for (ticker in tickervector) {
     {
       #lin reg test
       predict_y[i] <-
-        df_lin_coefs[1] + sum(df_lin_coefs[, -1] * df_x[i, ])
+        df_lin_coefs[1] + sum(df_lin_coefs[, -1] * df_x[i,])
       SSE_lin <- SSE_lin + (predict_y[i] - df_y[i, ])^2
       residual_fc[i] <- predict_y[i] - df_y[i, ]
       
       #nn test
-      predict_y_nnonly <- predict(nn_only, df_x[i, ])
+      predict_y_nnonly <- predict(nn_only, df_x[i,])
       nnonly_results[i] <- predict_y_nnonly
       SSE_NN <- SSE_NN + (nnonly_results[i] - df_y[i, ])^2
       
       #hybrid test
-      predictnn_y <- predict(nn, df_x[i, ])
+      predictnn_y <- predict(nn, df_x[i,])
       nnresults[i] <- predictnn_y
       final_results[i] <- nnresults[i] + unlist(predict_y[i])
       SSE_hibr <- SSE_hibr + (final_results[i] - df_y[i, ])^2
-    } # tesztmeret miatti for vége
+    } # tesztméret miatti for vége
     test_date[k + 1] <- as.Date(df_sel_test$Date)
-    yllmm <-  rbind(yllmm, predict_y[i])
-    ynn<-  rbind(ynn, nnonly_results)
-    yhibr<-  rbind(yhibr, final_results)
-    yvalos <-  rbind(yvalos, df_y)
     RMSE_lin[k + 1] <- sqrt(SSE_lin / testsize)
     RMSE_NN[k + 1] <- sqrt(SSE_NN / testsize)
     RMSE_hibr[k + 1] <- sqrt(SSE_hibr / testsize)
@@ -211,5 +193,3 @@ thebest <-  as.data.frame(colnames(final_results)[apply(final_results,1,which.mi
 final_results <-  as.data.frame(cbind(final_results, thebest))
 colnames(final_results) <-  c("Lin", "NN", "Hibr", "Best model")
 View(final_results)
-cbind(yvalos, yllmm, ynn, yhibr)
-
