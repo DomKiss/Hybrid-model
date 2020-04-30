@@ -71,7 +71,7 @@ sel_data <- function(start_obs, end_obs, date, data_df, Ind_name) {
 save_coef <- function(dfx, lm) {
   intercept <- coef(lm)[1]
   result <- intercept
-  for (i in 2:(length(dfx)+1)) {
+  for (i in 2:(ncol(dfx)+1)) {
   
     koef <- coef(lm) [i]
     result <- cbind(result, koef)

@@ -11,15 +11,17 @@ library(plm)
 
 
 
-tickervector <-  c("BTC-USD", "XRP-USD", "ETH-USD")
+tickervector <-  c("ETH-USD", "BTC-USD", "XRP-USD")
 merged_results = data.frame()
 resulttable = data.frame()
 RMSEs_t = data.frame()
 RMSEs = data.frame()
 RMSEs_tick = data.frame()
 f_results_table = data.frame()
-
+dibmar =data.frame()
+dibmar_total =data.frame()
 for (ticker in tickervector) {
+  
   #importing data
   adatax <-
     getSymbols.yahoo(
@@ -44,7 +46,7 @@ for (ticker in tickervector) {
   adf.test(prep_adata$log_returns)
   
   #creating technical indicators
-  n_vector <- c(seq(28, 52, by=2))
+  n_vector <- seq(28, 52, by=2)
   TIs <-
     cbind(TI_gen(prep_adata$prices, prep_adata$dates, n_vector, Ind_name = "MA"),TI_gen(prep_adata$prices, prep_adata$dates, n_vector, Ind_name = "TSMOM")[-1])
   
@@ -103,7 +105,7 @@ for (ticker in tickervector) {
                Input_data_df$Date,
                Input_data_df,
                "MA")
-    df_x <- df_sel[, 2:(length(df_sel) - 1)] #selected x variables
+    df_x <- as.data.frame(df_sel[, 2:(length(df_sel) - 1)]) #selected x variables
     df_y <-
       as.data.frame(df_sel[, length(df_sel)])  #selected y variables
     colnames(df_y) <- ("Lagged_logreturns")
@@ -114,8 +116,8 @@ for (ticker in tickervector) {
     #saving coeffitiens
     df_lin_coefs <- save_coef(df_x, llmm)
     residual_tr <- residuals(llmm)
-    
-    ddfx <- cbind(residual_tr, df_x)
+    maxmindfx <- as.data.frame(lapply(df_x, normalize))
+    ddfx <- cbind(residual_tr, maxmindfx)
     #fitting neural net on the linreg residuals
     nn = neuralnet(
       residual_tr ~ .,
@@ -136,6 +138,14 @@ for (ticker in tickervector) {
     #Test
     i = 1
     A <- B + 1
+    
+    df_sel_test_h <-
+      sel_data(start_obs, A, Input_data_df$Date, Input_data_df, "MA")
+    df_xh0 <- as.data.frame(df_sel_test_h[, 2:(length(df_sel) - 1)])
+    df_xh<- as.data.frame(lapply(df_xh0, normalize))
+    df_xh <- as.data.frame(df_xh[nrow(df_xh),])
+    
+    
     df_sel_test <-
       sel_data(A, A, Input_data_df$Date, Input_data_df, "MA")
     df_x <- df_sel_test[, 2:(length(df_sel) - 1)]
@@ -153,17 +163,17 @@ for (ticker in tickervector) {
     {
       #lin reg test
       predict_y[i] <-
-        df_lin_coefs[1] + sum(df_lin_coefs[, -1] * df_x[i, ])
+        df_lin_coefs[1] + sum(df_lin_coefs[, -1] * df_x)
       SSE_lin <- SSE_lin + (predict_y[i] - df_y[i, ])^2
       residual_fc[i] <- predict_y[i] - df_y[i, ]
       
       #nn test
-      predict_y_nnonly <- predict(nn_only, df_x[i, ])
+      predict_y_nnonly <- predict(nn_only, df_x)
       nnonly_results[i] <- predict_y_nnonly
       SSE_NN <- SSE_NN + (nnonly_results[i] - df_y[i, ])^2
       
       #hybrid test
-      predictnn_y <- predict(nn, df_x[i, ])
+      predictnn_y <- predict(nn, df_xh)
       nnresults[i] <- predictnn_y
       final_results[i] <- nnresults[i] + unlist(predict_y[i])
       SSE_hibr <- SSE_hibr + (final_results[i] - df_y[i, ])^2
@@ -186,8 +196,11 @@ for (ticker in tickervector) {
       as.data.frame(cbind(as.data.frame.Date(test_date), TrainingSiz, RMSE_lin, RMSE_NN, RMSE_hibr, cum_lin, cum_NN, cum_hibr))
     
     
-  } 
+  } #egy tickeren teljesen vege
+  dibmar <- cbind(ticker, dm.test(RMSE_lin, RMSE_NN)$p.value,dm.test(RMSE_lin, RMSE_hibr)$p.value, dm.test(RMSE_NN, RMSE_hibr)$p.value)
+  dibmar_total <- rbind(dibmar_total, dibmar)
   
+  colnames(dibmar_total) <-  c("ticker", "LinNN", "LinHibr", "NNHibr")
   
   RMSEs_tick <- as.data.frame(cbind(ticker, RMSEs))
   f_results_table <- rbind(f_results_table, RMSEs_tick)

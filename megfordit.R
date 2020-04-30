@@ -18,7 +18,7 @@ RMSEs = data.frame()
 RMSEs_tick = data.frame()
 f_results_table = data.frame()
 
-for (n in 2:9) {
+for (n in 2:8) {
   #importing data
   ticker=colnames(Commodity[n])
   adata2<-cbind(Commodity$Date, Commodity[,n])
@@ -35,7 +35,7 @@ for (n in 2:9) {
   #creating technical indicators
   n_vector <- c(seq(28, 52, by=2))
   TIs <-
-    cbind(TI_gen(prep_adata$prices, prep_adata$dates, n_vector, Ind_name = "MA"),TI_gen(prep_adata$prices, prep_adata$dates, n_vector, Ind_name = "TSMOM"))
+    TI_gen(prep_adata$prices, prep_adata$dates, n_vector, Ind_name = "MA")
   
   #join TIs + log_returns matrix, omit NAs
   Input_data_df_nonlagged <-
@@ -71,6 +71,10 @@ for (n in 2:9) {
   RMSEs_nn <- matrix(0, 50, 1)
   RMSEs_hibr <- matrix(0, 50, 1)
   test_date <- matrix(0, 50, 1)
+  ynn <- matrix(0, 0, 1)
+  yllmm <- matrix(0, 0, 1)
+  yhibr <- matrix(0, 0, 1)
+  yvalos <- matrix(0, 0, 1)
   TrainingSiz <- Nexp/nrow((Input_data_df))
   for (k in 0:Nexp)
     # run experiments
@@ -102,26 +106,34 @@ for (n in 2:9) {
     #saving coeffitiens
     df_lin_coefs <- save_coef(df_x, llmm)
     residual_tr <- residuals(llmm)
-    ddfx <- cbind(residual_tr, df_x)
+    maxmindfx <- as.data.frame(lapply(df_x, normalize))
+    
+    ddfx <- cbind(residual_tr, maxmindfx)
     #fitting neural net on the linreg residuals
     nn = neuralnet(
       residual_tr ~ .,
       data = ddfx,
       hidden = 1,
-      act.fct = "logistic", rep=1
+      act.fct = "logistic"
     )
     
     
     #fitting only neural net on the log_returns
     nn_only = neuralnet(Lagged_logreturn ~ . - Date, data = df_sel,
                         hidden = 1,
-                        act.fct = "logistic", rep=1
+                        act.fct = "logistic"
     )
     
     
     #Test
     i = 1
     A <- B + 1
+    
+    df_sel_test_h <-
+      sel_data(start_obs, A, Input_data_df$Date, Input_data_df, "MA")
+    df_xh <- as.data.frame(df_sel_test_h[, 2:(length(df_sel) - 1)])
+    df_xh<- as.data.frame(lapply(df_xh, normalize))
+    df_xh <- as.data.frame(df_xh[nrow(df_xh),])
     df_sel_test <-
       sel_data(A, A, Input_data_df$Date, Input_data_df, "MA")
     df_x <- as.data.frame(df_sel_test[, 2:(length(df_sel) - 1)])
@@ -139,22 +151,26 @@ for (n in 2:9) {
     {
       #lin reg test
       predict_y[i] <-
-        df_lin_coefs[1] + sum(df_lin_coefs[, -1] * df_x[i,])
+        df_lin_coefs[1] + sum(df_lin_coefs[, -1] * df_x)
       SSE_lin <- SSE_lin + (predict_y[i] - df_y[i, ])^2
       residual_fc[i] <- predict_y[i] - df_y[i, ]
       
       #nn test
-      predict_y_nnonly <- predict(nn_only, df_x[i,])
+      predict_y_nnonly <- predict(nn_only, df_x)
       nnonly_results[i] <- predict_y_nnonly
       SSE_NN <- SSE_NN + (nnonly_results[i] - df_y[i, ])^2
       
       #hybrid test
-      predictnn_y <- predict(nn, df_x[i,])
+      predictnn_y <- predict(nn, df_xh)
       nnresults[i] <- predictnn_y
       final_results[i] <- nnresults[i] + unlist(predict_y[i])
       SSE_hibr <- SSE_hibr + (final_results[i] - df_y[i, ])^2
     } # tesztméret miatti for vége
     test_date[k + 1] <- as.Date(df_sel_test$Date)
+    yllmm <-  rbind(yllmm, predict_y[i])
+    ynn<-  rbind(ynn, nnonly_results)
+    yhibr<-  rbind(yhibr, final_results)
+    yvalos <-  rbind(yvalos, df_y)
     RMSE_lin[k + 1] <- sqrt(SSE_lin / testsize)
     RMSE_NN[k + 1] <- sqrt(SSE_NN / testsize)
     RMSE_hibr[k + 1] <- sqrt(SSE_hibr / testsize)
@@ -193,3 +209,4 @@ thebest <-  as.data.frame(colnames(final_results)[apply(final_results,1,which.mi
 final_results <-  as.data.frame(cbind(final_results, thebest))
 colnames(final_results) <-  c("Lin", "NN", "Hibr", "Best model")
 View(final_results)
+cbind(yvalos, yllmm, ynn, yhibr)
