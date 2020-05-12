@@ -90,3 +90,43 @@ laglog <- function(df,column_to_be_lagged, l) {
   result <- df[ ,!(colnames(df) == "Log_returns")]
   
 }
+
+normalize <- function(x) {
+  return ((x - min(x)) / (max(x) - min(x)))
+}
+
+
+#ez mar jol megvan
+SSres<-  f_results_table %>% 
+  group_by(ticker) %>% 
+  summarize(SumSSE_lin=mean(RMSE_lin), SumSSE_NN=mean(RMSE_NN), SumSSE_hibr=mean(RMSE_hibr)) %>% 
+  arrange(as.character(ticker))
+
+
+SStot <- yvalos2 %>% 
+  arrange(ticker) %>% 
+  group_by(ticker) %>% 
+  summarize(y_var=var(Log_returns))
+
+
+
+
+
+Ros <- function(SSres, SStot){
+  eredmeny=data.frame(matrix(0,3,0))
+  for(i in 2:ncol(SSres)){
+    uj <- 1-SSres[,i]/SStot[,2]
+    eredmeny <- cbind(eredmeny,uj)
+  }
+  rownames(eredmeny) <- SStot$ticker
+  colnames(eredmeny) <- c("R^2-Lin", "R^2-NN","R^2-Hibr")
+  return(eredmeny)
+}
+
+
+
+
+
+
+
+

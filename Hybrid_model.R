@@ -8,18 +8,22 @@ library(rstudioapi)
 library(quantmod)
 library(writexl)
 library(plm)
+library(dplyr)
 
 
-
-tickervector <-  c("ETH-USD", "BTC-USD", "XRP-USD")
+tickervector <-  c("BTC-USD", "XRP-USD", "ETH-USD")
 merged_results = data.frame()
 resulttable = data.frame()
 RMSEs_t = data.frame()
 RMSEs = data.frame()
 RMSEs_tick = data.frame()
-f_results_table = data.frame()
+f_results_table = data.frame(stringsAsFactors = F)
 dibmar =data.frame()
 dibmar_total =data.frame()
+testnumber=tibble()
+yvalos2 <- tibble()
+
+yvalos <- matrix(0, 0, 1)
 for (ticker in tickervector) {
   
   #importing data
@@ -46,7 +50,7 @@ for (ticker in tickervector) {
   adf.test(prep_adata$log_returns)
   
   #creating technical indicators
-  n_vector <- seq(28, 52, by=2)
+  n_vector <- c(seq(28, 52, by=2))
   TIs <-
     cbind(TI_gen(prep_adata$prices, prep_adata$dates, n_vector, Ind_name = "MA"),TI_gen(prep_adata$prices, prep_adata$dates, n_vector, Ind_name = "TSMOM")[-1])
   
@@ -87,7 +91,7 @@ for (ticker in tickervector) {
   ynn <- matrix(0, 0, 1)
   yllmm <- matrix(0, 0, 1)
   yhibr <- matrix(0, 0, 1)
-  yvalos <- matrix(0, 0, 1)
+  
   TrainingSiz <- Nexp/nrow((Input_data_df))
   for (k in 0:Nexp)
     # run experiments
@@ -123,14 +127,14 @@ for (ticker in tickervector) {
       residual_tr ~ .,
       data = ddfx,
       hidden = 1,
-      rep =1,
+      rep =2,
       act.fct = "logistic"
     )
     
     
     #fitting only neural net on the log_returns
     nn_only = neuralnet(Lagged_logreturn ~ . - Date, data = df_sel,
-                        hidden = 1, rep=1,
+                        hidden = 1, rep=2,
                         act.fct = "logistic"
                         )
     
@@ -138,17 +142,17 @@ for (ticker in tickervector) {
     #Test
     i = 1
     A <- B + 1
-    
+   # testnumber[k+1,1] <- A
     df_sel_test_h <-
       sel_data(start_obs, A, Input_data_df$Date, Input_data_df, "MA")
-    df_xh0 <- as.data.frame(df_sel_test_h[, 2:(length(df_sel) - 1)])
-    df_xh<- as.data.frame(lapply(df_xh0, normalize))
+    df_xh <- as.data.frame(df_sel_test_h[, 2:(length(df_sel) - 1)])
+    df_xh<- as.data.frame(lapply(df_xh, normalize))
     df_xh <- as.data.frame(df_xh[nrow(df_xh),])
     
     
     df_sel_test <-
       sel_data(A, A, Input_data_df$Date, Input_data_df, "MA")
-    df_x <- df_sel_test[, 2:(length(df_sel) - 1)]
+    df_x <- as.data.frame(df_sel_test[, 2:(length(df_sel) - 1)])
     df_y <- as.data.frame(df_sel_test[, length(df_sel_test)])
     colnames(df_y) <- ("Log_returns")
     predict_y <- matrix(0, testsize, 1)
@@ -182,7 +186,10 @@ for (ticker in tickervector) {
     yllmm <-  rbind(yllmm, predict_y[i])
     ynn<-  rbind(ynn, nnonly_results)
     yhibr<-  rbind(yhibr, final_results)
+    y_new <- tibble(ticker, df_y)
+    yvalos2 <- rbind(yvalos2, y_new)
     yvalos <-  rbind(yvalos, df_y)
+    
     RMSE_lin[k + 1] <- sqrt(SSE_lin / testsize)
     RMSE_NN[k + 1] <- sqrt(SSE_NN / testsize)
     RMSE_hibr[k + 1] <- sqrt(SSE_hibr / testsize)
@@ -200,7 +207,6 @@ for (ticker in tickervector) {
   dibmar <- cbind(ticker, dm.test(RMSE_lin, RMSE_NN)$p.value,dm.test(RMSE_lin, RMSE_hibr)$p.value, dm.test(RMSE_NN, RMSE_hibr)$p.value)
   dibmar_total <- rbind(dibmar_total, dibmar)
   
-  colnames(dibmar_total) <-  c("ticker", "LinNN", "LinHibr", "NNHibr")
   
   RMSEs_tick <- as.data.frame(cbind(ticker, RMSEs))
   f_results_table <- rbind(f_results_table, RMSEs_tick)
@@ -225,4 +231,5 @@ final_results <-  as.data.frame(cbind(final_results, thebest))
 colnames(final_results) <-  c("Lin", "NN", "Hibr", "Best model")
 View(final_results)
 cbind(yvalos, yllmm, ynn, yhibr)
+colnames(dibmar_total) <-  c("ticker", "LinNN", "LinHibr", "NNHibr")
 

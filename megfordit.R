@@ -16,8 +16,10 @@ resulttable = data.frame()
 RMSEs_t = data.frame()
 RMSEs = data.frame()
 RMSEs_tick = data.frame()
-f_results_table = data.frame()
-
+f_results_table = data.frame(stringsAsFactors = F)
+dibmar =data.frame()
+dibmar_total =data.frame()
+testnumber=tibble()
 for (n in 2:8) {
   #importing data
   ticker=colnames(Commodity[n])
@@ -35,7 +37,7 @@ for (n in 2:8) {
   #creating technical indicators
   n_vector <- c(seq(28, 52, by=2))
   TIs <-
-    TI_gen(prep_adata$prices, prep_adata$dates, n_vector, Ind_name = "MA")
+    cbind(TI_gen(prep_adata$prices, prep_adata$dates, n_vector, Ind_name = "MA"),TI_gen(prep_adata$prices, prep_adata$dates, n_vector, Ind_name = "TSMOM")[-1])
   
   #join TIs + log_returns matrix, omit NAs
   Input_data_df_nonlagged <-
@@ -128,7 +130,7 @@ for (n in 2:8) {
     #Test
     i = 1
     A <- B + 1
-    
+    testnumber[k+1,1] <- A
     df_sel_test_h <-
       sel_data(start_obs, A, Input_data_df$Date, Input_data_df, "MA")
     df_xh <- as.data.frame(df_sel_test_h[, 2:(length(df_sel) - 1)])
@@ -152,19 +154,19 @@ for (n in 2:8) {
       #lin reg test
       predict_y[i] <-
         df_lin_coefs[1] + sum(df_lin_coefs[, -1] * df_x)
-      SSE_lin <- SSE_lin + (predict_y[i] - df_y[i, ])^2
-      residual_fc[i] <- predict_y[i] - df_y[i, ]
+      SSE_lin <- SSE_lin + (predict_y[i] - df_y[i,])^2
+      residual_fc[i] <- predict_y[i] - df_y[i,]
       
       #nn test
       predict_y_nnonly <- predict(nn_only, df_x)
       nnonly_results[i] <- predict_y_nnonly
-      SSE_NN <- SSE_NN + (nnonly_results[i] - df_y[i, ])^2
+      SSE_NN <- SSE_NN + (nnonly_results[i] - df_y[i,])^2
       
       #hybrid test
       predictnn_y <- predict(nn, df_xh)
       nnresults[i] <- predictnn_y
-      final_results[i] <- nnresults[i] + unlist(predict_y[i])
-      SSE_hibr <- SSE_hibr + (final_results[i] - df_y[i, ])^2
+      final_results[i] <- nnresults[i] + unlist(predict_y[i,])
+      SSE_hibr <- SSE_hibr + (final_results[i] - df_y[i,])^2
     } # tesztméret miatti for vége
     test_date[k + 1] <- as.Date(df_sel_test$Date)
     yllmm <-  rbind(yllmm, predict_y[i])
@@ -185,7 +187,8 @@ for (n in 2:8) {
     
     
   } 
-  
+  dibmar <- cbind(ticker, dm.test(RMSE_lin, RMSE_NN)$p.value,dm.test(RMSE_lin, RMSE_hibr)$p.value, dm.test(RMSE_NN, RMSE_hibr)$p.value)
+  dibmar_total <- rbind(dibmar_total, dibmar)
   
   RMSEs_tick <- as.data.frame(cbind(ticker, RMSEs))
   f_results_table <- rbind(f_results_table, RMSEs_tick)
@@ -210,3 +213,4 @@ final_results <-  as.data.frame(cbind(final_results, thebest))
 colnames(final_results) <-  c("Lin", "NN", "Hibr", "Best model")
 View(final_results)
 cbind(yvalos, yllmm, ynn, yhibr)
+colnames(dibmar_total) <-  c("ticker", "LinNN", "LinHibr", "NNHibr")
